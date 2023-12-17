@@ -100,7 +100,7 @@ for this_round in all_matches_for_save:
     df = pd.DataFrame(this_round, index=list_for_index, columns=["home", "", "", "away"])
     # df.to_excel('C:\work\develop\python_practice\league_table.xlsx', sheet_name='new_name')
 
-    path = f'C:\\work\\develop\\python_practice\\{season}.xlsx'
+    path = f'C:\\study\\repository\\fifa_tools\\{season}.xlsx'
 
     with pd.ExcelWriter(path) as writer:
         if this_round == all_matches_for_save[0]:
