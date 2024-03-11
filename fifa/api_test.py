@@ -9,34 +9,44 @@ def get_Player_info(playerID, ID_data):
             return info["name"]
 
 
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJYLUFwcC1SYXRlLUxpbWl0IjoiNTAwOjEwIiwiYWNjb3VudF9pZCI6IjE0MDk0MTEzOTIiLCJhdXRoX2lkIjoiMiIsImV4cCI6MTcxNjYzNDE3MCwiaWF0IjoxNzAxMDgyMTcwLCJuYmYiOjE3MDEwODIxNzAsInNlcnZpY2VfaWQiOiI0MzAwMTE0ODEiLCJ0b2tlbl90eXBlIjoiQWNjZXNzVG9rZW4ifQ.ZMTQ1lkYqrGJvADBtNlawic8sgPv51jMF_f969VYdnE"
+# TODO: 아이디, API Key 를 하나의 딕셔너리로 관리
+# key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJYLUFwcC1SYXRlLUxpbWl0IjoiNTAwOjEwIiwiYWNjb3VudF9pZCI6IjE0MDk0MTEzOTIiLCJhdXRoX2lkIjoiMiIsImV4cCI6MTcxNjYzNDE3MCwiaWF0IjoxNzAxMDgyMTcwLCJuYmYiOjE3MDEwODIxNzAsInNlcnZpY2VfaWQiOiI0MzAwMTE0ODEiLCJ0b2tlbl90eXBlIjoiQWNjZXNzVG9rZW4ifQ.ZMTQ1lkYqrGJvADBtNlawic8sgPv51jMF_f969VYdnE"
+key = "test_0fbd5a467bbd8e03d6362dc46f67d804c296095aa2a0ae8d2828c7f2fdd9b923524f4bed1f06e6205ea0c278a7424ef2"
 
-get_all_players_url = "https://static.api.nexon.co.kr/fconline/latest/spid.json"
+headers = {
+    "x-nxopen-api-key": key
+}
+
+# get_all_players_url = "https://static.api.nexon.co.kr/fconline/latest/spid.json"
+get_all_players_url = "https://open.api.nexon.com/static/fconline/meta/spid.json"
 all_players = requests.get(urlparse(get_all_players_url).geturl(), headers = {"Authorization" : key}).json()
 
-user_name = "빱빱디라"
-
-
-
+user_name = "일품해물탕면"
 
 # 1. Match Type 구하기 (친선 경기 만)
-get_match_type_url = "https://static.api.nexon.co.kr/fconline/latest/matchtype.json"
+# get_match_type_url = "https://static.api.nexon.co.kr/fconline/latest/matchtype.json"
+get_match_type_url = "https://open.api.nexon.com/static/fconline/meta/matchtype.json"
 match_types = requests.get(urlparse(get_match_type_url).geturl(), headers = {"Authorization" : key}).json()
 friendly_match_type = match_types[1]["matchtype"]
 
 # 2. User access ID 구하기
-get_user_access_id_url = "https://public.api.nexon.com/openapi/fconline/v1.0/users?nickname=" + user_name
-user_access_id = requests.get(urlparse(get_user_access_id_url).geturl(), headers = {"Authorization" : key}).json()["accessId"]
+# get_user_access_id_url = "https://public.api.nexon.com/openapi/fconline/v1.0/users?nickname=" + user_name
+get_user_access_id_url = "https://open.api.nexon.com/fconline/v1/id?nickname=" + user_name
+# get_user_access_id_url = "https://open.api.nexon.com/fconline/v1/id?nickname=%EC%9D%BC%ED%92%88%ED%95%B4%EB%AC%BC%ED%83%95%EB%A9%B4"
+# user_access_id = requests.get(urlparse(get_user_access_id_url).geturl(), headers = {"Authorization" : key}).json()["accessId"]
+user_access_id = requests.get(urlparse(get_user_access_id_url).geturl(), headers = headers).json()["ouid"]
 
 # 3. User Match ID 구하기
-get_user_match_id_url = "https://public.api.nexon.com/openapi/fconline/v1.0/users/" + user_access_id + "/matches?matchtype=" + str(friendly_match_type)
-user_match_ids = requests.get(urlparse(get_user_match_id_url).geturl(), headers = {"Authorization" : key}).json()
+# get_user_match_id_url = "https://public.api.nexon.com/openapi/fconline/v1.0/users/" + user_access_id + "/matches?matchtype=" + str(friendly_match_type)
+get_user_match_id_url = "https://open.api.nexon.com/fconline/v1/user/match?ouid=" + user_access_id + "&matchtype=" + str(friendly_match_type)
+user_match_ids = requests.get(urlparse(get_user_match_id_url).geturl(), headers = headers).json()
 
 # 4. 해당 match ID 의 세부 정보 가져오기
 
 for user_match_id in user_match_ids:
-    get_match_info_url = "https://public.api.nexon.com/openapi/fconline/v1.0/matches/" + user_match_id
-    match_info = requests.get(urlparse(get_match_info_url).geturl(), headers = {"Authorization" : key}).json()
+    # get_match_info_url = "https://public.api.nexon.com/openapi/fconline/v1.0/matches/" + user_match_id
+    get_match_info_url = "https://open.api.nexon.com/fconline/v1/match-detail?matchid=" + user_match_id
+    match_info = requests.get(urlparse(get_match_info_url).geturl(), headers = headers).json()
     match_date = match_info["matchDate"]
     match_teams = match_info["matchInfo"]
 
