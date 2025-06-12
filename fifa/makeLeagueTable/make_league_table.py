@@ -109,10 +109,10 @@ round_count = 1
 
 for this_round in all_matches_for_save:
 
-    list_for_index = []
-    for j in range(len(all_matches_for_save[0])):
-        list_for_index.append(f"{round_count} 라운드 {j+1} 번쨰 매치")
+    # 인덱스 이름 만들기
+    list_for_index = [f"{round_count} 라운드 {i+1} 번째 매치" for i in range(len(this_round))]
 
+    # 데이터프레임 생성
     df = pd.DataFrame(this_round, index=list_for_index, columns=["home", "", "", "away"])
 
     path = f'C:\\playground\\seasons\\{season}.xlsx'
