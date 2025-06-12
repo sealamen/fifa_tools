@@ -1,6 +1,23 @@
 import random
-import openpyxl
+import os
+import time
 import pandas as pd
+
+def try_remove_file(path, retries=5, delay=5):
+    for attempt in range(retries):
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+                print(f"{path} 파일 삭제 성공")
+                return True
+            else:
+                print(f"{path} 파일이 존재하지 않습니다.")
+                return True
+        except PermissionError:
+            print(f"파일이 열려있어 삭제 실패했습니다. {delay}초 후 다시 시도합니다... (시도 {attempt + 1}/{retries})")
+            time.sleep(delay)
+    print("파일을 삭제할 수 없습니다. 파일을 닫고 다시 실행해 주세요.")
+    return False
 
 
 play_list_on_first_half = []
@@ -91,23 +108,33 @@ for match in all_matches:
 round_count = 1
 
 for this_round in all_matches_for_save:
-    print(this_round)
 
     list_for_index = []
     for j in range(len(all_matches_for_save[0])):
         list_for_index.append(f"{round_count} 라운드 {j+1} 번쨰 매치")
 
     df = pd.DataFrame(this_round, index=list_for_index, columns=["home", "", "", "away"])
-    # df.to_excel('C:\work\develop\python_practice\league_table.xlsx', sheet_name='new_name')
 
-    path = f'C:\\study\\repository\\fifa_tools\\{season}.xlsx'
+    path = f'C:\\playground\\seasons\\{season}.xlsx'
 
-    with pd.ExcelWriter(path) as writer:
-        if this_round == all_matches_for_save[0]:
+    if not os.path.exists(path):
+        # 파일 없으면 새로 생성
+        with pd.ExcelWriter(path, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name=f'Round {round_count}')
-        else:
-            writer.book = openpyxl.load_workbook(path)
-            df.to_excel(writer, sheet_name=f'Round {round_count}')
+    else:
+        # 파일이 있지만 깨졌거나 문제 있을 수도 있으니 예외 처리 권장
+        try:
+            with pd.ExcelWriter(path, mode='a', engine='openpyxl', if_sheet_exists='new') as writer:
+                df.to_excel(writer, sheet_name=f'Round {round_count}')
+        except Exception as e:
+            print(f"기존 파일 열기 실패: {e}")
+            print("파일 삭제 시도 중...")
+            if try_remove_file(path):
+                with pd.ExcelWriter(path, engine='openpyxl') as writer:
+                    df.to_excel(writer, sheet_name=f'Round {round_count}')
+            else:
+                print("프로그램을 종료합니다.")
+                break
 
     round_count += 1
 
