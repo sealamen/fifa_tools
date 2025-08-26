@@ -178,39 +178,207 @@ def is_match_info_exists(cur, match_id, ouid):
     """, match_id=match_id, ouid=ouid)
     return cur.fetchone()[0] > 0
 
+# 시즌 리그 순위 조회
+def show_league_table(cur, season):
+    cur.execute("""
+        WITH team_stats AS (
+            SELECT 
+                t.TEAM_NAME AS team_name,
+                COUNT(*) AS matches_played,
+                SUM(CASE WHEN mi1.MATCH_RESULT = '승' THEN 1 ELSE 0 END) AS wins,
+                SUM(CASE WHEN mi1.MATCH_RESULT = '무' THEN 1 ELSE 0 END) AS draws,
+                SUM(CASE WHEN mi1.MATCH_RESULT = '패' THEN 1 ELSE 0 END) AS losses,
+                SUM(CASE 
+                        WHEN mi1.MATCH_RESULT = '승' THEN 3
+                        WHEN mi1.MATCH_RESULT = '무' THEN 1
+                        ELSE 0
+                    END
+                ) AS points,
+                SUM(mi1.GOAL_TOTAL) AS goals_for,
+                SUM(mi2.GOAL_TOTAL) AS goals_against,
+                LISTAGG(mi1.MATCH_RESULT, '') 
+                    WITHIN GROUP (ORDER BY m.MATCH_DATE DESC) AS recent_results_all
+            FROM MATCH_INFO mi1
+            JOIN MATCH_INFO mi2 
+                ON mi1.MATCH_ID = mi2.MATCH_ID 
+               AND mi1.MATCH_INFO_ID != mi2.MATCH_INFO_ID
+            JOIN MATCHES m
+                ON mi1.MATCH_ID = m.MATCH_ID
+            JOIN TEAMS t
+                ON mi1.NICKNAME = t.NICKNAME   -- 여기서 매핑
+               AND mi1.SEASON = t.SEASON       -- 여기서 매핑 
+            WHERE mi2.SEASON = :season
+            GROUP BY t.TEAM_NAME
+        )
+        SELECT 
+            team_name,
+            matches_played,
+            wins,
+            draws,
+            losses,
+            points,
+            goals_for,
+            goals_against,
+            (goals_for - goals_against) AS goal_diff,
+            SUBSTR(recent_results_all, 1, 5) AS recent_5_results
+        FROM team_stats
+        ORDER BY points DESC, (goals_for - goals_against) DESC, goals_for DESC
+    """, season=season)
+    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
 
-# 기존 저장 함수들은 그대로 두고, 아래 조회 함수 추가
+# 시즌 공격포인트 랭킹
+def get_attack_point_rank(cur, season):
+    cur.execute("""
+        SELECT 
+            RANK() OVER (ORDER BY SUM(s.GOAL + s.ASSIST) DESC) AS RANKING,
+            t.TEAM_NAME AS TEAM,
+            p.NAME AS PLAYER,
+            SUM(s.GOAL) AS GOAL,
+            SUM(s.ASSIST) AS ASSIST,
+            (SUM(s.GOAL) + SUM(s.ASSIST)) AS ATTACK_POINT
+        FROM MATCH_PLAYER_STATS s
+        JOIN MATCH_INFO m 
+            ON s.MATCH_INFO_ID = m.MATCH_INFO_ID
+        JOIN PLAYERS p 
+            ON s.SP_ID = p.SP_ID
+        JOIN TEAMS t 
+            ON p.TEAM_NAME = t.TEAM_NAME
+        WHERE m.SEASON = :season
+        GROUP BY t.TEAM_NAME, p.NAME
+        ORDER BY RANKING
+    """, season=season)
+    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
 
-def query_all_matches(cur):
-    cur.execute("SELECT MATCH_ID, MATCH_DATE, MATCH_TYPE FROM MATCHES ORDER BY MATCH_DATE DESC")
+# 시즌 득점 랭킹
+def get_goal_rank(cur, season):
+    cur.execute("""
+        SELECT 
+            RANK() OVER (ORDER BY SUM(s.GOAL) DESC) AS RANKING,
+            t.TEAM_NAME AS TEAM,
+            p.NAME AS PLAYER,
+            SUM(s.GOAL) AS GOAL,
+            SUM(s.ASSIST) AS ASSIST,
+            (SUM(s.GOAL) + SUM(s.ASSIST)) AS ATTACK_POINT
+        FROM MATCH_PLAYER_STATS s
+        JOIN MATCH_INFO m ON s.MATCH_INFO_ID = m.MATCH_INFO_ID
+        JOIN PLAYERS p ON s.SP_ID = p.SP_ID
+        JOIN TEAMS t ON p.TEAM_NAME = t.TEAM_NAME
+        WHERE m.SEASON = :season
+        GROUP BY t.TEAM_NAME, p.NAME
+        ORDER BY RANKING
+    """, season=season)
+    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
+# 시즌 도움 랭킹
+def get_assist_rank(cur, season):
+    cur.execute("""
+        SELECT 
+            RANK() OVER (ORDER BY SUM(s.ASSIST) DESC) AS RANKING,
+            t.TEAM_NAME AS TEAM,
+            p.NAME AS PLAYER,
+            SUM(s.GOAL) AS GOAL,
+            SUM(s.ASSIST) AS ASSIST,
+            (SUM(s.GOAL) + SUM(s.ASSIST)) AS ATTACK_POINT
+        FROM MATCH_PLAYER_STATS s
+        JOIN MATCH_INFO m ON s.MATCH_INFO_ID = m.MATCH_INFO_ID
+        JOIN PLAYERS p ON s.SP_ID = p.SP_ID
+        JOIN TEAMS t ON p.TEAM_NAME = t.TEAM_NAME
+        WHERE m.SEASON = :season
+        GROUP BY t.TEAM_NAME, p.NAME
+        ORDER BY RANKING
+    """, season=season)
+    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
+# 특정 선수 정보 조회
+def get_player_info(cur, season, player_name):
+    cur.execute("""
+        SELECT 
+            MAX(t.TEAM_NAME) AS TEAM,        -- 여러 행 중 하나만 가져오기
+            p.NAME AS PLAYER,
+            MAX(p.POSITION) AS POSITION,
+            MAX(p.IMAGE_URL) AS IMAGE,
+            SUM(s.GOAL) AS GOALS,
+            SUM(s.ASSIST) AS ASSISTS,
+            SUM(s.GOAL + s.ASSIST) AS ATTACK_POINT,
+            SUM(s.DRIBBLE_TRY) AS DRIBBLES,
+            SUM(s.DRIBBLE_SUCCESS) AS DRIBBLE_SUCCESS,
+            SUM(s.PASS_TRY) AS PASS_TRY,
+            SUM(s.PASS_SUCCESS) AS PASS_SUCCESS,
+            SUM(s.TACKLE_TRY) AS TACKLE_TRY,
+            SUM(s.TACKLE_SUCCESS) AS TACKLE_SUCCESS,
+            AVG(s.SP_RATING) AS AVERAGE_RATING,
+            SUM(s.SHOOT) AS SHOOT, 
+            SUM(s.EFFECTIVE_SHOOT) AS EFFECTIVE_SHOOT,
+            SUM(s.DEFENDING) AS DEFENDING,
+            SUM(s.BLOCK_TRY) AS BLOCK_TRY,
+            SUM(s.BLOCK) AS BLOCK,
+            SUM(s.YELLOW_CARDS) AS YELLOW_CARDS,
+            SUM(s.RED_CARDS) AS RED_CARDS
+        FROM MATCH_PLAYER_STATS s
+        JOIN MATCH_INFO m ON s.MATCH_INFO_ID = m.MATCH_INFO_ID
+        JOIN PLAYERS p ON s.SP_ID = p.SP_ID
+        JOIN TEAMS t ON p.TEAM_NAME = t.TEAM_NAME
+        WHERE p.NAME = :player_name
+          AND m.SEASON = :season
+        GROUP BY p.NAME
+    """, season=season, player_name=player_name)
     return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
 
 
-def query_match_info(cur, match_id):
+# 특정 팀 정보 조회
+def get_team_info(cur, season, team_name):
     cur.execute("""
-        SELECT * 
-        FROM MATCH_INFO 
-        WHERE MATCH_ID = :match_id
-        ORDER BY MATCH_INFO_ID
-    """, match_id=match_id)
-    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
-
-
-def query_player_stats(cur, match_info_id):
-    cur.execute("""
-        SELECT * 
-        FROM MATCH_PLAYER_STATS 
-        WHERE MATCH_INFO_ID = :match_info_id
-        ORDER BY PLAYER_STATS_ID
-    """, match_info_id=match_info_id)
-    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
-
-
-def query_shoot_detail(cur, match_info_id):
-    cur.execute("""
-        SELECT * 
-        FROM MATCH_SHOOT_DETAIL 
-        WHERE MATCH_INFO_ID = :match_info_id
-        ORDER BY SHOOT_ID
-    """, match_info_id=match_info_id)
+        WITH team_stats AS (
+            SELECT 
+                t.TEAM_NAME AS TEAM,
+                COUNT(*) AS MATCHES_PLAYED,
+                SUM(CASE WHEN mi1.MATCH_RESULT = '승' THEN 1 ELSE 0 END) AS WINS,
+                SUM(CASE WHEN mi1.MATCH_RESULT = '무' THEN 1 ELSE 0 END) AS DRAWS,
+                SUM(CASE WHEN mi1.MATCH_RESULT = '패' THEN 1 ELSE 0 END) AS LOSSES,
+                SUM(CASE WHEN mi1.MATCH_RESULT = '승' THEN 3
+                         WHEN mi1.MATCH_RESULT = '무' THEN 1
+                         ELSE 0 END) AS POINTS,
+                SUM(mi1.GOAL_TOTAL) AS GOALS_FOR,
+                SUM(mi2.GOAL_TOTAL) AS GOALS_AGAINST,
+                SUM(mi1.OWN_GOAL) AS OWN_GOALS,
+                SUM(mi1.SHOOT_TOTAL) AS SHOOTS,
+                SUM(mi1.EFFECTIVE_SHOOT_TOTAL) AS EFFECTIVE_SHOOTS,
+                SUM(mi1.TACKLE_TRY) AS TACKLE_TRIES,
+                SUM(mi1.TACKLE_SUCCESS) AS TACKLE_SUCCESSES,
+                SUM(mi1.YELLOW_CARDS) AS YELLOW_CARDS,
+                SUM(mi1.RED_CARDS) AS RED_CARDS,
+                LISTAGG(mi1.MATCH_RESULT, '') WITHIN GROUP (ORDER BY m.MATCH_DATE DESC) AS RECENT_RESULTS_ALL
+            FROM MATCH_INFO mi1
+            JOIN MATCH_INFO mi2
+                ON mi1.MATCH_ID = mi2.MATCH_ID
+               AND mi1.MATCH_INFO_ID != mi2.MATCH_INFO_ID
+            JOIN MATCHES m
+                ON mi1.MATCH_ID = m.MATCH_ID
+            JOIN TEAMS t
+                ON mi1.NICKNAME = t.NICKNAME
+               AND mi1.SEASON = t.SEASON
+            WHERE mi1.SEASON = :season
+              AND t.TEAM_NAME = :team_name
+            GROUP BY t.TEAM_NAME
+        )
+        SELECT
+            TEAM,
+            MATCHES_PLAYED,
+            WINS,
+            DRAWS,
+            LOSSES,
+            POINTS,
+            GOALS_FOR,
+            GOALS_AGAINST,
+            (GOALS_FOR - GOALS_AGAINST) AS GOAL_DIFF,
+            SHOOTS,
+            EFFECTIVE_SHOOTS,
+            TACKLE_TRIES,
+            TACKLE_SUCCESSES,
+            OWN_GOALS,
+            YELLOW_CARDS,
+            RED_CARDS,
+            SUBSTR(RECENT_RESULTS_ALL, 1, 5) AS RECENT_5_RESULTS
+        FROM team_stats
+    """, season=season, team_name=team_name)
     return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]

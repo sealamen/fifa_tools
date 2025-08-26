@@ -1,57 +1,142 @@
 import oracledb
 import configparser
 import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, Path
+from pydantic import BaseModel
+from typing import List, Optional
 
 from module import db_utils, data_collector
 
+# FastAPI 앱 생성
+app = FastAPI(
+    title="FIFA Data Collector",
+    description="FIFA 경기, 선수, 팀 데이터 조회용 API",
+    version="1.0"
+)
 
-app = FastAPI(title="FIFA Data Collector")
-templates = Jinja2Templates(directory="templates")
+# Pydantic 모델
+class PlayerStat(BaseModel):
+    team: str
+    player: str
+    goals: int
+    assists: int
+    attack_point: int
 
+class PlayerStatsResponse(BaseModel):
+    season: str
+    stats: List[PlayerStat]
 
-@app.get("/collect")
+class PlayerInfo(BaseModel):
+    team: str
+    player: str
+    position: str
+    image: Optional[str]
+    goals: int
+    assists: int
+    attack_point: int
+    dribbles: int
+    dribble_success: int
+    pass_try: int
+    pass_success: int
+    tackle_try: int
+    tackle_success: int
+    average_rating: Optional[float]
+    shoot: int
+    effective_shoot: int
+    defending: int
+    block_try: int
+    block: int
+    yellow_cards: int
+    red_cards: int
+
+class TeamInfo(BaseModel):
+    team_name: str
+    season: str
+    matches_played: int
+    wins: int
+    draws: int
+    losses: int
+    goals_for: int
+    goals_against: int
+    goal_diff: int
+    own_goals: int
+    yellow_cards: int
+    red_cards: int
+
+class ShootDetail(BaseModel):
+    shoot_id: int
+    player_name: str
+    shoot_type: str
+    result: str
+    minute: int
+
+# 루트
+@app.get("/", description="API 기본 정보")
+def root():
+    return {"message": "FIFA Data Collector API"}
+
+# 데이터 수집
+@app.put("/collect", description="NEXON API를 통해 최신 경기 데이터를 수집 후 DB에 저장")
 def collect_data():
     data_collector.collect_and_save_match_data()
     return {"status": "success"}
 
-
-# 조회용 API
-@app.get("/matches")
-def get_matches():
-    """
-    모든 경기 조회
-    """
+# 리그 테이블 조회
+@app.get("/league_table/{season}", description="특정 시즌 리그 순위 조회")
+def show_league_table(season: str= Path(..., description="조회할 시즌, 예: '2025_1'")):
     cur = conn.cursor()
-    result = db_utils.query_all_matches(cur)
+    result = db_utils.show_league_table(cur, season)
     cur.close()
-    return {"matches": result}
+    return result
 
-
-@app.get("/match_info/{match_id}")
-def get_match_info(match_id: str):
-    """
-    특정 경기의 match_info 조회
-    """
+# 개인 순위 조회
+@app.get("/rank/attack_point/{season}", description="공격 포인트 순위 조회")
+def get_attack_point_rank(season: str= Path(..., description="조회할 시즌, 예: '2025_1'")):
     cur = conn.cursor()
-    result = db_utils.query_match_info(cur, match_id)
+    result = db_utils.get_attack_point_rank(cur, season)
     cur.close()
-    return {"match_info": result}
+    # return result
+    return {"season": season, "stats": result}
 
-
-@app.get("/player_stats/{match_info_id}")
-def get_player_stats(match_info_id: int):
-    """
-    특정 match_info_id의 선수 통계 조회
-    """
+@app.get("/rank/goal/{season}", description="득점 순위 조회")
+def get_goal_rank(season: str= Path(..., description="조회할 시즌, 예: '2025_1'")):
     cur = conn.cursor()
-    result = db_utils.query_player_stats(cur, match_info_id)
+    result = db_utils.get_goal_rank(cur, season)
     cur.close()
-    return {"player_stats": result}
+    # return result
+    return {"season": season, "stats": result}
 
+@app.get("/rank/assist/{season}", description="어시스트 순위 조회")
+def get_assist_rank(season: str= Path(..., description="조회할 시즌, 예: '2025_1'")):
+    cur = conn.cursor()
+    result = db_utils.get_assist_rank(cur, season)
+    cur.close()
+    # return result
+    return {"season": season, "stats": result}
 
+# 선수 정보 조회
+@app.get("/info/player/{season}/{player_name}", description="특정 선수 시즌별 누적 스탯 조회")
+def get_player_info(
+        season: str = Path(..., description="조회할 시즌, 예: '2025_1'"),
+        player_name: str = Path(..., description="조회할 선수 이름")
+    ):
+    cur = conn.cursor()
+    result = db_utils.get_player_info(cur, season, player_name)
+    cur.close()
+    return result
+
+# 팀 정보 조회
+@app.get("/info/teams/{season}/{team_name}", description="특정 팀 시즌별 누적 스탯 조회")
+def get_team_info(
+        season: str = Path(..., description="조회할 시즌, 예: '2025_1'"),
+        team_name: str = Path(..., description="조회할 팀 이름")
+    ):
+    cur = conn.cursor()
+    result = db_utils.get_team_info(cur, season, team_name)
+    cur.close()
+    return result
+
+# 슛 상세 조회
 @app.get("/shoot_detail/{match_info_id}")
 def get_shoot_detail(match_info_id: int):
     """
@@ -63,39 +148,12 @@ def get_shoot_detail(match_info_id: int):
     return {"shoot_detail": result}
 
 
-@app.get("/")
-def root():
-    return {"message": "FIFA Data Collector API"}
-
-
-
-@app.get("/api/match/{match_id}", response_class=HTMLResponse)
-def match_detail_api(request: Request, match_id: str):
-    cur = conn.cursor()
-    match_info = db_utils.query_match_info(cur, match_id)
-    player_stats = []
-    shoot_details = []
-    for info in match_info:
-        stats = db_utils.query_player_stats(cur, info['MATCH_INFO_ID'])
-        shoots = db_utils.query_shoot_detail(cur, info['MATCH_INFO_ID'])
-        player_stats.append(stats)
-        shoot_details.append(shoots)
-    cur.close()
-    # 작은 HTML fragment 반환
-    return templates.TemplateResponse("match_detail_fragment.html", {
-        "request": {}, "match_info": match_info,
-        "player_stats": player_stats, "shoot_details": shoot_details
-    })
-
-
 if __name__ == "__main__":
-    # 설정 파일 로드
     config = configparser.ConfigParser()
     config.read("application.properties", encoding="utf-8")
     db_user = config['DEFAULT']['db.user']
     db_password = config['DEFAULT']['db.password']
     db_dsn = config['DEFAULT']['db.dsn']
-    # api_key = config['DEFAULT']['api.key']
     oracle_client_location = config['DEFAULT']["oracle_client_location"]
 
     # Oracle Thick 모드 활성화
