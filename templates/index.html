@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>FIFA Match Data</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<h1>경기 목록</h1>
+
+<table id="matches-table">
+    <thead>
+        <tr>
+            <th>MATCH_ID</th>
+            <th>MATCH_DATE</th>
+            <th>MATCH_TYPE</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in matches %}
+        <tr class="match-row" data-match-id="{{ m['MATCH_ID'] }}">
+            <td>{{ m['MATCH_ID'] }}</td>
+            <td>{{ m['MATCH_DATE'] }}</td>
+            <td>{{ m['MATCH_TYPE'] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- 모달 -->
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <span id="modal-close" class="close">&times;</span>
+        <div id="modal-body">
+            <!-- AJAX 로 경기 상세 데이터 삽입 -->
+        </div>
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>

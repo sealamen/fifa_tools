@@ -1,0 +1,35 @@
+{% for info, stats, shoots in zip(match_info, player_stats, shoot_details) %}
+<h3>OUID: {{ info['OUID'] }} / NICKNAME: {{ info['NICKNAME'] }}</h3>
+
+<h4>선수 통계</h4>
+<table>
+    <tr>
+        {% for k in stats[0].keys() %}
+        <th>{{ k }}</th>
+        {% endfor %}
+    </tr>
+    {% for s in stats %}
+    <tr>
+        {% for v in s.values() %}
+        <td>{{ v }}</td>
+        {% endfor %}
+    </tr>
+    {% endfor %}
+</table>
+
+<h4>슛 상세</h4>
+<table>
+    <tr>
+        {% for k in shoots[0].keys() %}
+        <th>{{ k }}</th>
+        {% endfor %}
+    </tr>
+    {% for sh in shoots %}
+    <tr>
+        {% for v in sh.values() %}
+        <td>{{ v }}</td>
+        {% endfor %}
+    </tr>
+    {% endfor %}
+</table>
+{% endfor %}

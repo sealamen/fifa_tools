@@ -1,90 +1,114 @@
 import oracledb
 import configparser
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
-from module import fconline_api
-from module import db_utils
-
-
-def main():
-
-    # 환경 설정 읽기
-    config = configparser.ConfigParser()
-    config.read("application.properties", encoding="utf-8")
-
-    db_user = config['DEFAULT']['db.user']
-    db_password = config['DEFAULT']['db.password']
-    db_dsn = config['DEFAULT']['db.dsn']
-    oracle_client_location = config['DEFAULT']["oracle_client_location"]
-
-    user_name = "일품해물탕면"
-    api_key = config['DEFAULT']['api.key']
+from module import db_utils, data_collector
 
 
-    print("=== 환경 설정 로드 완료 ===")
-    print(f"DB: {db_user}@{db_dsn}, API_KEY: {api_key[:6]}***\n")
+app = FastAPI(title="FIFA Data Collector")
+templates = Jinja2Templates(directory="templates")
 
-    # Oracle Thick 모드 활성화 및 연결
-    oracledb.init_oracle_client(lib_dir=oracle_client_location)
-    conn = oracledb.connect(user=db_user, password=db_password, dsn=db_dsn)
+
+@app.get("/collect")
+def collect_data():
+    """
+    특정 유저의 경기 데이터 수집
+    TODO : 전체 유저 리스트를 만들어서, 한 번에 모든 경기 데이터를 save 하도록 만들자
+    """
+    data_collector.collect_and_save_match_data()
+    return {"status": "success"}
+
+
+# 조회용 API
+@app.get("/matches")
+def get_matches():
+    """
+    모든 경기 조회
+    """
     cur = conn.cursor()
-    print("=== DB 연결 완료 ===\n")
-
-    # NEXON API 데이터 불러오기
-    all_players = fconline_api.get_all_players(api_key)
-    match_types = fconline_api.get_match_type(api_key)
-    friendly_match_type = match_types[1]["matchtype"]
-    user_access_id = fconline_api.get_user_access_id(api_key, user_name)
-    user_match_ids = fconline_api.get_user_match_ids(api_key, user_access_id, friendly_match_type)
-    print("=== NEXON API 불러오기 완료 ===")
-    print(f"총 경기 수 조회: {len(user_match_ids)}\n")
-
-
-    def get_player_name(player_id):
-        for player_info in all_players:
-            if player_info['id'] == player_id:
-                return player_info["name"]
-        return None
-
-    # 경기 데이터 저장
-    print("=== 데이터 저장 시작 ===\n")
-    for match_id in user_match_ids:
-        print(f">>> Match_ID: {match_id} 처리 시작")
-        match_results = fconline_api.get_match_detail(api_key, match_id)
-        print(f">>> Match Date: {match_results['matchDate']}")
-
-        db_utils.save_match(cur, match_id, match_results['matchDate'], match_results['matchType'])
-        conn.commit()
-        print(">>> [DONE] MATCHES 테이블 저장 완료")
-
-        for match_info in match_results['matchInfo']:
-
-            # 중복 체크
-            if db_utils.is_match_info_exists(cur, match_id, match_info['ouid']):
-                print(f">>> [SKIP] 중복 데이터 존재: match_id={match_id}, ouid={match_info['ouid']}")
-                continue
-
-            match_info_id_var = cur.var(int)
-            db_utils.save_match_info(cur, match_id, match_info, match_info_id_var)
-            match_info_id = match_info_id_var.getvalue()[0]
-            print(f">>> [DONE] MATCH_INFO 저장 완료: match_info_id={match_info_id}, ouid={match_info['ouid']}")
-
-            for player in match_info['player']:
-                name = get_player_name(player['spId'])
-                db_utils.save_player(cur, player, match_info, name)
-                db_utils.save_player_stats(cur, player, match_info_id)
-                print(f">>> [DONE] PLAYER & PLAYER_STATS 저장 완료: sp_id={player['spId']}, name={name}")
-
-            for shoot in match_info.get('shootDetail', []):
-                db_utils.save_shoot_detail(cur, shoot, match_info_id)
-                print(f">>> [DONE] SHOOT_DETAIL 저장 완료: shoot_id={shoot.get('shootId', 'N/A')}")
-
-        conn.commit()
-        print(f">>> Match_ID {match_id} 처리 완료\n")
-
+    result = db_utils.query_all_matches(cur)
     cur.close()
-    conn.close()
-    print("=== DB 연결 종료 ===")
+    return {"matches": result}
+
+
+@app.get("/match_info/{match_id}")
+def get_match_info(match_id: str):
+    """
+    특정 경기의 match_info 조회
+    """
+    cur = conn.cursor()
+    result = db_utils.query_match_info(cur, match_id)
+    cur.close()
+    return {"match_info": result}
+
+
+@app.get("/player_stats/{match_info_id}")
+def get_player_stats(match_info_id: int):
+    """
+    특정 match_info_id의 선수 통계 조회
+    """
+    cur = conn.cursor()
+    result = db_utils.query_player_stats(cur, match_info_id)
+    cur.close()
+    return {"player_stats": result}
+
+
+@app.get("/shoot_detail/{match_info_id}")
+def get_shoot_detail(match_info_id: int):
+    """
+    특정 match_info_id의 슛 상세 조회
+    """
+    cur = conn.cursor()
+    result = db_utils.query_shoot_detail(cur, match_info_id)
+    cur.close()
+    return {"shoot_detail": result}
+
+
+@app.get("/")
+def root():
+    return {"message": "FIFA Data Collector API"}
+
+
+
+@app.get("/api/match/{match_id}", response_class=HTMLResponse)
+def match_detail_api(request: Request, match_id: str):
+    cur = conn.cursor()
+    match_info = db_utils.query_match_info(cur, match_id)
+    player_stats = []
+    shoot_details = []
+    for info in match_info:
+        stats = db_utils.query_player_stats(cur, info['MATCH_INFO_ID'])
+        shoots = db_utils.query_shoot_detail(cur, info['MATCH_INFO_ID'])
+        player_stats.append(stats)
+        shoot_details.append(shoots)
+    cur.close()
+    # 작은 HTML fragment 반환
+    return templates.TemplateResponse("match_detail_fragment.html", {
+        "request": {}, "match_info": match_info,
+        "player_stats": player_stats, "shoot_details": shoot_details
+    })
 
 
 if __name__ == "__main__":
-    main()
+    # 설정 파일 로드
+    config = configparser.ConfigParser()
+    config.read("application.properties", encoding="utf-8")
+    db_user = config['DEFAULT']['db.user']
+    db_password = config['DEFAULT']['db.password']
+    db_dsn = config['DEFAULT']['db.dsn']
+    api_key = config['DEFAULT']['api.key']
+    oracle_client_location = config['DEFAULT']["oracle_client_location"]
+
+    # Oracle Thick 모드 활성화
+    oracledb.init_oracle_client(lib_dir=oracle_client_location)
+
+    # DB 연결
+    conn = oracledb.connect(user=db_user, password=db_password, dsn=db_dsn)
+
+    # FastAPI 서버 실행 : reload 가 안되는 단점이 있어서, 제대로 실행하려면 명령어로 실행 필요 (uvicorn main:app --reload)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
+
+
