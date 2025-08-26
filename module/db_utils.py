@@ -12,7 +12,7 @@ def save_match(cur, match_id, match_date, match_type):
 def save_match_info(cur, match_id, info, match_info_id_var):
     cur.execute("""
         INSERT INTO MATCH_INFO
-        (MATCH_INFO_ID, MATCH_ID, OUID, NICKNAME, SEASON_ID, MATCH_RESULT,
+        (MATCH_INFO_ID, MATCH_ID, OUID, NICKNAME, SEASON, MATCH_RESULT,
          POSSESSION, FOUL, INJURY, YELLOW_CARDS, RED_CARDS, AVERAGE_RATING,
          SHOOT_TOTAL, GOAL_TOTAL, PASS_TRY, PASS_SUCCESS,
          SHORT_PASS_TRY, SHORT_PASS_SUCCESS, LONG_PASS_TRY, LONG_PASS_SUCCESS,
@@ -22,7 +22,7 @@ def save_match_info(cur, match_id, info, match_info_id_var):
          EFFECTIVE_SHOOT_TOTAL, OWN_GOAL, SHOOT_HEADING, GOAL_HEADING,
          SHOOT_FREEKICK, GOAL_FREEKICK, SHOOT_IN_PENALTY, GOAL_IN_PENALTY,
          SHOOT_OUT_PENALTY, GOAL_OUT_PENALTY, SHOOT_PENALTYKICK, GOAL_PENALTYKICK)
-        VALUES (MATCH_INFO_SEQ.NEXTVAL, :match_id, :ouid, :nickname, :season_id,
+        VALUES (MATCH_INFO_SEQ.NEXTVAL, :match_id, :ouid, :nickname, :season,
                 :match_result, :possession, :foul, :injury, :yellow_cards,
                 :red_cards, :average_rating, :shoot_total, :goal_total,
                 :pass_try, :pass_success,
@@ -38,7 +38,7 @@ def save_match_info(cur, match_id, info, match_info_id_var):
     match_id=match_id,
     ouid=info['ouid'],
     nickname=info['nickname'],
-    season_id=info['matchDetail']['seasonId'],
+    season=info['matchDetail']['seasonId'],
     match_result=info['matchDetail']['matchResult'],
     possession=info['matchDetail']['possession'],
     foul=info['matchDetail']['foul'],
@@ -83,18 +83,19 @@ def save_match_info(cur, match_id, info, match_info_id_var):
     match_info_id=match_info_id_var
     )
 
-def save_player(cur, player, info, name):
+def save_player(cur, player, info, name, team_name):
     cur.execute("""
         MERGE INTO PLAYERS P
         USING (SELECT :sp_id AS sp_id FROM dual) src
         ON (P.SP_ID = src.sp_id)
         WHEN NOT MATCHED THEN
-            INSERT (SP_ID, NAME, SEASON, POSITION)
-            VALUES (:sp_id, :name, :season_id, :position)
+            INSERT (SP_ID, NAME, SEASON, POSITION, TEAM_NAME)
+            VALUES (:sp_id, :name, :season, :position, :team_name)
     """,
     sp_id=player['spId'],
     name=name,
-    season_id=info['matchDetail']['seasonId'],
+    team_name=team_name,
+    season=info['matchDetail']['seasonId'],
     position=player['spPosition'])
 
 def save_player_stats(cur, player, match_info_id):
@@ -176,3 +177,40 @@ def is_match_info_exists(cur, match_id, ouid):
         WHERE MATCH_ID = :match_id AND OUID = :ouid
     """, match_id=match_id, ouid=ouid)
     return cur.fetchone()[0] > 0
+
+
+# 기존 저장 함수들은 그대로 두고, 아래 조회 함수 추가
+
+def query_all_matches(cur):
+    cur.execute("SELECT MATCH_ID, MATCH_DATE, MATCH_TYPE FROM MATCHES ORDER BY MATCH_DATE DESC")
+    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
+
+def query_match_info(cur, match_id):
+    cur.execute("""
+        SELECT * 
+        FROM MATCH_INFO 
+        WHERE MATCH_ID = :match_id
+        ORDER BY MATCH_INFO_ID
+    """, match_id=match_id)
+    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
+
+def query_player_stats(cur, match_info_id):
+    cur.execute("""
+        SELECT * 
+        FROM MATCH_PLAYER_STATS 
+        WHERE MATCH_INFO_ID = :match_info_id
+        ORDER BY PLAYER_STATS_ID
+    """, match_info_id=match_info_id)
+    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
+
+def query_shoot_detail(cur, match_info_id):
+    cur.execute("""
+        SELECT * 
+        FROM MATCH_SHOOT_DETAIL 
+        WHERE MATCH_INFO_ID = :match_info_id
+        ORDER BY SHOOT_ID
+    """, match_info_id=match_info_id)
+    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]

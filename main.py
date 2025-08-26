@@ -14,10 +14,6 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/collect")
 def collect_data():
-    """
-    특정 유저의 경기 데이터 수집
-    TODO : 전체 유저 리스트를 만들어서, 한 번에 모든 경기 데이터를 save 하도록 만들자
-    """
     data_collector.collect_and_save_match_data()
     return {"status": "success"}
 
@@ -99,7 +95,7 @@ if __name__ == "__main__":
     db_user = config['DEFAULT']['db.user']
     db_password = config['DEFAULT']['db.password']
     db_dsn = config['DEFAULT']['db.dsn']
-    api_key = config['DEFAULT']['api.key']
+    # api_key = config['DEFAULT']['api.key']
     oracle_client_location = config['DEFAULT']["oracle_client_location"]
 
     # Oracle Thick 모드 활성화
