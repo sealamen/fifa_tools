@@ -7,6 +7,25 @@ from typing import List, Optional
 
 from module import db_utils, data_collector
 
+# 전역 선언
+conn = None
+
+def init_db():
+    global conn
+    import configparser, oracledb
+    config = configparser.ConfigParser()
+    config.read("application.properties", encoding="utf-8")
+    db_user = config['DEFAULT']['db.user']
+    db_password = config['DEFAULT']['db.password']
+    db_dsn = config['DEFAULT']['db.dsn']
+    oracle_client_location = config['DEFAULT']["oracle_client_location"]
+    oracledb.init_oracle_client(lib_dir=oracle_client_location)
+    conn = oracledb.connect(user=db_user, password=db_password, dsn=db_dsn)
+
+# FastAPI 실행 전에 DB 초기화
+init_db()
+
+
 # FastAPI 앱 생성
 app = FastAPI(
     title="FIFA Data Collector",
@@ -149,18 +168,18 @@ def get_shoot_detail(match_info_id: int):
 
 
 if __name__ == "__main__":
-    config = configparser.ConfigParser()
-    config.read("application.properties", encoding="utf-8")
-    db_user = config['DEFAULT']['db.user']
-    db_password = config['DEFAULT']['db.password']
-    db_dsn = config['DEFAULT']['db.dsn']
-    oracle_client_location = config['DEFAULT']["oracle_client_location"]
-
-    # Oracle Thick 모드 활성화
-    oracledb.init_oracle_client(lib_dir=oracle_client_location)
-
-    # DB 연결
-    conn = oracledb.connect(user=db_user, password=db_password, dsn=db_dsn)
+    # config = configparser.ConfigParser()
+    # config.read("application.properties", encoding="utf-8")
+    # db_user = config['DEFAULT']['db.user']
+    # db_password = config['DEFAULT']['db.password']
+    # db_dsn = config['DEFAULT']['db.dsn']
+    # oracle_client_location = config['DEFAULT']["oracle_client_location"]
+    #
+    # # Oracle Thick 모드 활성화
+    # oracledb.init_oracle_client(lib_dir=oracle_client_location)
+    #
+    # # DB 연결
+    # conn = oracledb.connect(user=db_user, password=db_password, dsn=db_dsn)
 
     # FastAPI 서버 실행 : reload 가 안되는 단점이 있어서, 제대로 실행하려면 명령어로 실행 필요 (uvicorn main:app --reload)
     uvicorn.run(app, host="127.0.0.1", port=8000)
