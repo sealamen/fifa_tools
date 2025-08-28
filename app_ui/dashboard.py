@@ -3,54 +3,138 @@ import streamlit as st
 import requests
 import pandas as pd
 
+from datetime import datetime
+import os
+
 
 API_BASE = "http://127.0.0.1:8000"
 
+# 로그 디렉토리 및 파일
+
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+log_file_path  = os.path.join(LOG_DIR, "collect.log")
+
 st.title("FIFA 경기 데이터 대시보드")
 
-
-
+# 사이드바 메뉴
 st.sidebar.title("📌 메뉴")
 menu = st.sidebar.radio("탭 선택", ["개발 환경 구축 매뉴얼", "Architecture Diagram",
-                                   "데이터", "모듈 구조"])
-
+                                   "대시보드", "모듈 구조"])
 
 # 매뉴얼
 if menu == "개발 환경 구축 매뉴얼":
     st.header("개발환경 구축 매뉴얼")
     st.markdown("""
-    1. Python 3.9+ 설치  
-    2. 가상환경 생성: `conda create -n fifa python=3.9`  
-    3. 필수 라이브러리 설치:  
+    1. 가상 환경 생성: 
+       ```bash 
+       conda create -n fifa python=3.13 # python 3.13.5
+       ```  
+    2. Oracle 11g 설치 : https://www.notion.so/Window-Oracle-2367eb9760b780c985f0f3d9ebd837b7
+
+    3. 필수 라이브러리 설치: oracledb 사용을 위해서는 oracle_instant_client 필요 
        ```bash
-       pip install fastapi uvicorn streamlit pandas requests matplotlib
+       pip install oracledb fastapi uvicorn streamlit pandas requests
        ```
-    4. DB 세팅 후 FastAPI 실행:  
+       
+       
+    4. 소스코드 가져오기 : https://github.com/sealamen/fifa_tools.git
+    
+    5. 테이블 생성 : https://github.com/sealamen/fifa_tools/issues/8
+    
+    6. 매핑용 데이터 추가 
+       ```sql
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (01, 'ARSENAL', '일품해물탕면');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (02, 'NEWCASTLE Utd', '빱빱디라');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (03, 'BARCELONA', '빱빱디라라');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (04, 'INTER MILAN', '잇다');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (05, 'PSG', 'bai71739');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (06, 'MANCHESTER UNITED', 'babysale');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (07, 'MANCHESTER CITY', '돗토누리');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (08, 'REAL MADRID', '미페만취급');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (09, 'LIVERPOOL', '일품해');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (10, 'BAYERN MUNICH', '울지않기');
+       ```
+    
+    5. FastAPI 실행:  
        ```bash
        uvicorn main:app --reload
        ```
-    5. Streamlit 실행:  
+    6. Streamlit 실행 : 다른 터미널에서 실행 
        ```bash
        streamlit run dashboard.py
        ```
+       
+    7. 실행 후 대시보드 -> UPDATE 버튼 클릭  
     """)
 
 
 # 아키텍처 다이어그램
 elif menu == "Architecture Diagram":
-    st.header("Architecture Diagram")
+    st.markdown("### Architecture Diagram")
+
+    from PIL import Image
+    architecture_image = Image.open("assets/architecture.png")  # 로컬 경로
+    st.image(architecture_image, caption="아키텍처 다이어그램")
+
     st.markdown("""
-    ```mermaid
-    flowchart LR
-        User --> Streamlit_UI
-        Streamlit_UI --> FastAPI
-        FastAPI --> DB[(Database)]
-        FastAPI --> ExternalAPI[(Football API)]
-    ```
+    - 백엔드 서버 구축 이유
+    1. 한 달 이내의 데이터만 외부 API 조회 가능 ⇒ 데이터 누적 시, 경기 예측 서비스 개발 가능 
+    2. 추후 작업 스케쥴러 or cron 을 통한 자동화 예정
+    """)
+
+    st.markdown("### ")
+    st.markdown("### DB Modeling")
+    db_modeling_image = Image.open("assets/db_modeling.png")  # 로컬 경로
+    st.image(db_modeling_image, caption="DB Modeling")
+
+    st.markdown("""
+    - 테이블 설명
+        - MATCHES : MATCH 목록을 관리하는 테이블
+        - MATCH_INFO : MATCH 의 경기 점수, 승패, 점유율, 총 패스 횟수 등 경기 전반의 데이터를 저장
+        - MATCH_PLAYER_STATS : MATCH 에 출전한 선수의 평점, 슛, 득점, 패스 수 등 개인 기록을 저장
+        - MATCH_SHOOT_DETAIL : 득점 장면에 대한 세부 지표 (사용 X)
+        - PLAYERS : 선수 전체 목록 관리
+        - TEAMS : 팀 전체 목록 관리
+        
+    
+    - 역할 단위로 나눈 테이블 목록
+    - MATCH_INFO, MATCH_PLAYER_STAST 는 각각 30개가 넘는 세부 지표들이 있지만, 조회용 테이블이기 때문에, 정규화 진행 X
+    - 미사용 컬럼 및 미사용 테이블에 대한 추가 기능 개발 및 정리 필요
     """)
 
 # 데이터 (선수/팀 조회)
-elif menu == "데이터":
+elif menu == "대시보드":
+
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("데이터 업데이트")
+    if st.sidebar.button("UPDATE"):
+        with st.spinner("데이터 수집 중..."):
+            try:
+                resp = requests.put(f"{API_BASE}/collect")
+                if resp.status_code == 200:
+                    log_text = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 수집 완료: {resp.text}\n"
+                    with open(log_file_path, "a", encoding="utf-8") as f:
+                        f.write(log_text)
+                    st.success("데이터 수집 완료!")
+                else:
+                    st.error(f"수집 실패: {resp.status_code}")
+            except Exception as e:
+                st.error(f"예외 발생: {e}")
+
+    # 마지막 동기화 날짜 표시
+    if os.path.exists(log_file_path):
+        with open(log_file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        if lines:
+            last_sync = lines[-1].split("]")[0].replace("[", "")
+            st.sidebar.caption(f"마지막 동기화: {last_sync}")
+
+    # 로그 다운로드 버튼
+    if os.path.exists(log_file_path):
+        with open(log_file_path, "r", encoding="utf-8") as f:
+            logs = f.read()
+        st.sidebar.download_button("로그 파일 다운로드", logs, file_name="collect.log", mime="text/plain")
 
     # 시즌 선택
     season = st.selectbox("시즌 선택", ["2025_1", "2024_2"])
@@ -281,19 +365,43 @@ elif menu == "데이터":
 
 # 모듈 구조
 elif menu == "모듈 구조":
-    st.header("모듈 구조")
+    st.markdown("### 모듈 구조")
     st.code("""
     📂 fifa_tools/
-    ├── app_ui/
-    │   ├── dashboard.py      # Streamlit 대시보드
-    ├── api/
-    │   ├── main.py           # FastAPI 엔트리포인트
-    │   ├── routers/          # 라우터들
-    │   └── schemas.py        # Pydantic 모델
-    ├── db/
-    │   ├── models.py         # SQLAlchemy 모델
-    │   ├── crud.py           # DB 쿼리
-    │   └── database.py       # DB 연결
-    └── scripts/
-        └── fetch_data.py     # API/크롤링 자동 수집
+     ├─ module/
+     │   ├─ fconline_api.py       # 외부 API 실행 
+     │   ├─ data_collector.py     # 데이터 수집/저장 로직
+     │   └─ db_utils.py           # SQL 모음 
+     │
+     ├─ app_ui/
+     │   └─ dashboard.py          # Streamlit 대시보드
+     │
+     ├─ assets/
+     │   ├─ arsenal_logo.png      # 팀 엠블럼 이미지파일
+     │   ├─ barcelona_logo.png  
+     │   └─ ...        
+     │
+     ├─ logs/
+     │   └─ collect.log           # 데이터 가져오기에 대한 log 기록 
+     │
+     ├─ main.py                   # FastAPI API 서버
+     └─ application.properties    # 보안 요소가 포함된 환경 설정 값  
     """)
+
+    st.markdown("### 모듈 Flow Chart")
+
+    from PIL import Image
+    flowchart_image = Image.open("assets/flowchart.png")  # 로컬 경로
+    st.image(flowchart_image, caption="모듈 Flow chart")
+
+    st.markdown("""
+    ### 기타 내용
+    
+    추후 개발 내용 
+    
+    - 작업 스케쥴러 or Crontab 등을 통한 경기 정보 저장 자동화 설정
+    - 데이터 UI 추가 개발 및, 데이터 활용(경기 결과 예측, 득점 지표 등)
+    """)
+
+
+
