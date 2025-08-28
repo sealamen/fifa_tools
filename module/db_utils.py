@@ -295,6 +295,7 @@ def get_player_info(cur, season, player_name):
         SELECT 
             MAX(t.TEAM_NAME) AS TEAM,        -- 여러 행 중 하나만 가져오기
             p.NAME AS PLAYER,
+            MAX(p.SP_ID) AS PLAYER_ID,
             MAX(p.POSITION) AS POSITION,
             MAX(p.IMAGE_URL) AS IMAGE,
             SUM(s.GOAL) AS GOALS,
@@ -304,12 +305,19 @@ def get_player_info(cur, season, player_name):
             SUM(s.DRIBBLE_SUCCESS) AS DRIBBLE_SUCCESS,
             SUM(s.PASS_TRY) AS PASS_TRY,
             SUM(s.PASS_SUCCESS) AS PASS_SUCCESS,
+            SUM(s.THROUGH_PASS_TRY) AS THROUGH_PASS_TRY,
+            SUM(s.THROUGH_PASS_SUCCESS) AS THROUGH_PASS_SUCCESS,
+            SUM(s.LONG_PASS_TRY) AS LONG_PASS_TRY,
+            SUM(s.LONG_PASS_SUCCESS) AS LONG_PASS_SUCCESS,
+            SUM(s.SHORT_PASS_TRY) AS SHORT_PASS_TRY,
+            SUM(s.SHORT_PASS_SUCCESS) AS SHORT_PASS_SUCCESS,
             SUM(s.TACKLE_TRY) AS TACKLE_TRY,
             SUM(s.TACKLE_SUCCESS) AS TACKLE_SUCCESS,
             AVG(s.SP_RATING) AS AVERAGE_RATING,
             SUM(s.SHOOT) AS SHOOT, 
             SUM(s.EFFECTIVE_SHOOT) AS EFFECTIVE_SHOOT,
             SUM(s.DEFENDING) AS DEFENDING,
+            SUM(s.INTERCEPT) AS INTERCEPT,
             SUM(s.BLOCK_TRY) AS BLOCK_TRY,
             SUM(s.BLOCK) AS BLOCK,
             SUM(s.YELLOW_CARDS) AS YELLOW_CARDS,
@@ -331,6 +339,7 @@ def get_team_info(cur, season, team_name):
         WITH team_stats AS (
             SELECT 
                 t.TEAM_NAME AS TEAM,
+                t.EMBLEM_URL,
                 COUNT(*) AS MATCHES_PLAYED,
                 SUM(CASE WHEN mi1.MATCH_RESULT = '승' THEN 1 ELSE 0 END) AS WINS,
                 SUM(CASE WHEN mi1.MATCH_RESULT = '무' THEN 1 ELSE 0 END) AS DRAWS,
@@ -359,10 +368,11 @@ def get_team_info(cur, season, team_name):
                AND mi1.SEASON = t.SEASON
             WHERE mi1.SEASON = :season
               AND t.TEAM_NAME = :team_name
-            GROUP BY t.TEAM_NAME
+            GROUP BY t.TEAM_NAME, t.EMBLEM_URL
         )
         SELECT
             TEAM,
+            EMBLEM_URL,
             MATCHES_PLAYED,
             WINS,
             DRAWS,
@@ -381,4 +391,14 @@ def get_team_info(cur, season, team_name):
             SUBSTR(RECENT_RESULTS_ALL, 1, 5) AS RECENT_5_RESULTS
         FROM team_stats
     """, season=season, team_name=team_name)
+    return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
+
+def get_team_list(cur, season):
+    cur.execute("""
+        SELECT TEAM_NAME
+        FROM TEAMS
+        WHERE SEASON = :season
+        ORDER BY TEAM_NAME
+    """, season=season)
     return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]

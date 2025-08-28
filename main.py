@@ -12,14 +12,19 @@ conn = None
 
 def init_db():
     global conn
-    import configparser, oracledb
+
+    # 설정 파일 읽어 오기
     config = configparser.ConfigParser()
     config.read("application.properties", encoding="utf-8")
     db_user = config['DEFAULT']['db.user']
     db_password = config['DEFAULT']['db.password']
     db_dsn = config['DEFAULT']['db.dsn']
     oracle_client_location = config['DEFAULT']["oracle_client_location"]
+
+    # Oracle Thick 모드 활성화
     oracledb.init_oracle_client(lib_dir=oracle_client_location)
+
+    # DB 연결
     conn = oracledb.connect(user=db_user, password=db_password, dsn=db_dsn)
 
 # FastAPI 실행 전에 DB 초기화
@@ -30,7 +35,10 @@ init_db()
 app = FastAPI(
     title="FIFA Data Collector",
     description="FIFA 경기, 선수, 팀 데이터 조회용 API",
-    version="1.0"
+    version="1.0",
+    docs_url = "/swagger",         # Swagger UI 접근 경로
+    redoc_url = "/redoc",          # ReDoc 접근 경로
+    openapi_url = "/openapi.json"  # OpenAPI 스펙 JSON
 )
 
 # Pydantic 모델
@@ -155,12 +163,18 @@ def get_team_info(
     cur.close()
     return result
 
+# 해당 시즌 팀 목록 조회
+@app.get("/info/team_list/{season}", description="특정 시즌 팀 리스트 조회")
+def get_team_list(
+        season: str = Path(..., description="조회할 시즌, 예: '2025_1'")):
+    cur = conn.cursor()
+    result = db_utils.get_team_list(cur, season)
+    cur.close()
+    return result
+
 # 슛 상세 조회
-@app.get("/shoot_detail/{match_info_id}")
+@app.get("/shoot_detail/{match_info_id}", description="특정 match_info_id의 슛 상세 조회")
 def get_shoot_detail(match_info_id: int):
-    """
-    특정 match_info_id의 슛 상세 조회
-    """
     cur = conn.cursor()
     result = db_utils.query_shoot_detail(cur, match_info_id)
     cur.close()
@@ -168,18 +182,6 @@ def get_shoot_detail(match_info_id: int):
 
 
 if __name__ == "__main__":
-    # config = configparser.ConfigParser()
-    # config.read("application.properties", encoding="utf-8")
-    # db_user = config['DEFAULT']['db.user']
-    # db_password = config['DEFAULT']['db.password']
-    # db_dsn = config['DEFAULT']['db.dsn']
-    # oracle_client_location = config['DEFAULT']["oracle_client_location"]
-    #
-    # # Oracle Thick 모드 활성화
-    # oracledb.init_oracle_client(lib_dir=oracle_client_location)
-    #
-    # # DB 연결
-    # conn = oracledb.connect(user=db_user, password=db_password, dsn=db_dsn)
 
     # FastAPI 서버 실행 : reload 가 안되는 단점이 있어서, 제대로 실행하려면 명령어로 실행 필요 (uvicorn main:app --reload)
     uvicorn.run(app, host="127.0.0.1", port=8000)
