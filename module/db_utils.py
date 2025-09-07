@@ -9,6 +9,7 @@ def save_match(cur, match_id, match_date, match_type):
             VALUES (:match_id, TO_DATE(:match_date,'YYYY-MM-DD"T"HH24:MI:SS'), :match_type)
     """, match_id=match_id, match_date=match_date, match_type=match_type)
 
+
 def save_match_info(cur, match_id, info, match_info_id_var):
     cur.execute("""
         INSERT INTO MATCH_INFO
@@ -83,6 +84,7 @@ def save_match_info(cur, match_id, info, match_info_id_var):
     match_info_id=match_info_id_var
     )
 
+
 def save_player(cur, player, info, name, team_name):
     cur.execute("""
         MERGE INTO PLAYERS P
@@ -97,6 +99,7 @@ def save_player(cur, player, info, name, team_name):
     team_name=team_name,
     season=info['matchDetail']['seasonId'],
     position=player['spPosition'])
+
 
 def save_player_stats(cur, player, match_info_id):
     cur.execute("""
@@ -143,6 +146,7 @@ def save_player_stats(cur, player, match_info_id):
     red_cards=player['status']['redCards']
     )
 
+
 def save_shoot_detail(cur, shoot, match_info_id):
     cur.execute("""
         INSERT INTO MATCH_SHOOT_DETAIL
@@ -164,6 +168,7 @@ def save_shoot_detail(cur, shoot, match_info_id):
     in_penalty=1 if shoot.get('inPenalty', False) else 0
     )
 
+
 def is_match_info_exists(cur, match_id, ouid):
     """
     MATCH_INFO 테이블에서 match_id + ouid 조합이 존재하는지 확인
@@ -177,6 +182,7 @@ def is_match_info_exists(cur, match_id, ouid):
         WHERE MATCH_ID = :match_id AND OUID = :ouid
     """, match_id=match_id, ouid=ouid)
     return cur.fetchone()[0] > 0
+
 
 # 시즌 리그 순위 조회
 def show_league_table(cur, season):
@@ -226,6 +232,7 @@ def show_league_table(cur, season):
     """, season=season)
     return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
 
+
 # 시즌 공격포인트 랭킹
 def get_attack_point_rank(cur, season):
     cur.execute("""
@@ -243,11 +250,13 @@ def get_attack_point_rank(cur, season):
             ON s.SP_ID = p.SP_ID
         JOIN TEAMS t 
             ON p.TEAM_NAME = t.TEAM_NAME
+            AND m.SEASON = t.SEASON
         WHERE m.SEASON = :season
         GROUP BY t.TEAM_NAME, p.NAME
         ORDER BY RANKING
     """, season=season)
     return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
 
 # 시즌 득점 랭킹
 def get_goal_rank(cur, season):
@@ -263,11 +272,13 @@ def get_goal_rank(cur, season):
         JOIN MATCH_INFO m ON s.MATCH_INFO_ID = m.MATCH_INFO_ID
         JOIN PLAYERS p ON s.SP_ID = p.SP_ID
         JOIN TEAMS t ON p.TEAM_NAME = t.TEAM_NAME
+                    AND m.SEASON = t.SEASON
         WHERE m.SEASON = :season
         GROUP BY t.TEAM_NAME, p.NAME
         ORDER BY RANKING
     """, season=season)
     return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
 
 # 시즌 도움 랭킹
 def get_assist_rank(cur, season):
@@ -283,11 +294,13 @@ def get_assist_rank(cur, season):
         JOIN MATCH_INFO m ON s.MATCH_INFO_ID = m.MATCH_INFO_ID
         JOIN PLAYERS p ON s.SP_ID = p.SP_ID
         JOIN TEAMS t ON p.TEAM_NAME = t.TEAM_NAME
+                     AND m.SEASON = t.SEASON
         WHERE m.SEASON = :season
         GROUP BY t.TEAM_NAME, p.NAME
         ORDER BY RANKING
     """, season=season)
     return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
 
 # 특정 선수 정보 조회
 def get_player_info(cur, season, player_name):
@@ -326,6 +339,7 @@ def get_player_info(cur, season, player_name):
         JOIN MATCH_INFO m ON s.MATCH_INFO_ID = m.MATCH_INFO_ID
         JOIN PLAYERS p ON s.SP_ID = p.SP_ID
         JOIN TEAMS t ON p.TEAM_NAME = t.TEAM_NAME
+                     AND m.SEASON = t.SEASON
         WHERE p.NAME = :player_name
           AND m.SEASON = :season
         GROUP BY p.NAME
