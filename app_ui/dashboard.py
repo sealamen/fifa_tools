@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 import os
 
+# 실행 커맨드 : streamlit run app_ui/dashboard.py
 
 API_BASE = "http://127.0.0.1:8000"
 
@@ -40,20 +41,32 @@ if menu == "개발 환경 구축 매뉴얼":
        
     4. 소스코드 가져오기 : https://github.com/sealamen/fifa_tools.git
     
+    4. USER 생성 
+       ```sql
+       CREATE USER FCONLINE IDENTIFIED BY FCONLINE;
+       GRANT connect, resource to FCONLINE;
+        
+       ALTER USER FCONLINE 
+       DEFAULT TABLESPACE USERS
+       TEMPORARY TABLESPACE TEMP;
+        
+       ALTER USER FCONLINE QUOTA UNLIMITED ON USERS;
+       ```
+    
     5. 테이블 생성 : https://github.com/sealamen/fifa_tools/issues/8
     
     6. 매핑용 데이터 추가 
        ```sql
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (01, 'ARSENAL', '일품해물탕면');
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (02, 'NEWCASTLE Utd', '빱빱디라');
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (03, 'BARCELONA', '빱빱디라라');
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (04, 'INTER MILAN', '잇다');
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (05, 'PSG', 'bai71739');
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (06, 'MANCHESTER UNITED', 'babysale');
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (07, 'MANCHESTER CITY', '돗토누리');
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (08, 'REAL MADRID', '미페만취급');
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (09, 'LIVERPOOL', '일품해');
-       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME) VALUES (10, 'BAYERN MUNICH', '울지않기');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (01, 'ARSENAL', '일품해물탕면', '2025_1');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (02, 'NEWCASTLE Utd', '빱빱디라', '2025_1');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (03, 'BARCELONA', '빱빱디라라', '2025_1');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (04, 'INTER MILAN', '잇다', '2025_1');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (05, 'PSG', 'bai71739', '2025_1');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (06, 'MANCHESTER UNITED', 'babysale', '2025_1');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (07, 'MANCHESTER CITY', '돗토누리', '2025_1');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (08, 'REAL MADRID', '미페만취급', '2025_1');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (09, 'LIVERPOOL', '일품해', '2025_1');
+       INSERT INTO TEAMS(TEAM_ID, TEAM_NAME, NICKNAME, SEASON) VALUES (10, 'BAYERN MUNICH', '울지않기', '2025_1');
        ```
     
     5. FastAPI 실행:  
@@ -137,7 +150,7 @@ elif menu == "대시보드":
         st.sidebar.download_button("로그 파일 다운로드", logs, file_name="collect.log", mime="text/plain")
 
     # 시즌 선택
-    season = st.selectbox("시즌 선택", ["2025_1", "2024_2"])
+    season = st.selectbox("시즌 선택", ["2025_1", "2025_2"])
 
     # 탭 구성
     tabs = st.tabs(["리그 테이블", "개인 순위", "선수 정보", "팀 정보", "슛 상세"])

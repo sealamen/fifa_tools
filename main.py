@@ -7,6 +7,15 @@ from typing import List, Optional
 
 from module import db_utils, data_collector
 
+'''
+시즌이 새로 시작되면, 
+1 ) application.propereties 에서 season_start_date, season_id 변경 
+2 ) teams 테이블에 시즌 데이터 새로 입력 필요 
+3 ) UI 조회를 위해서는 dashboard.py 파일의 시즌 목록 탭 추가 필요 
+
+# uvicorn main:app --reload
+'''
+
 # 전역 선언
 conn = None
 
