@@ -2,8 +2,6 @@ import oracledb
 import configparser
 import uvicorn
 from fastapi import FastAPI, Path
-from pydantic import BaseModel
-from typing import List, Optional
 
 from module import db_utils, data_collector
 
@@ -12,12 +10,14 @@ from module import db_utils, data_collector
 1 ) application.propereties 에서 season_start_date, season_id 변경 
 2 ) teams 테이블에 시즌 데이터 새로 입력 필요 
 3 ) UI 조회를 위해서는 dashboard.py 파일의 시즌 목록 탭 추가 필요 
+4 ) UI 조회를 위해서 이미지 파일 구해서, assets 에 집어넣어야함
 
 # uvicorn main:app --reload
 '''
 
 # 전역 선언
 conn = None
+
 
 def init_db():
     global conn
@@ -36,6 +36,7 @@ def init_db():
     # DB 연결
     conn = oracledb.connect(user=db_user, password=db_password, dsn=db_dsn)
 
+
 # FastAPI 실행 전에 DB 초기화
 init_db()
 
@@ -45,77 +46,24 @@ app = FastAPI(
     title="FIFA Data Collector",
     description="FIFA 경기, 선수, 팀 데이터 조회용 API",
     version="1.0",
-    docs_url = "/swagger",         # Swagger UI 접근 경로
-    redoc_url = "/redoc",          # ReDoc 접근 경로
-    openapi_url = "/openapi.json"  # OpenAPI 스펙 JSON
+    docs_url="/swagger",         # Swagger UI 접근 경로
+    redoc_url="/redoc",          # ReDoc 접근 경로
+    openapi_url="/openapi.json"  # OpenAPI 스펙 JSON
 )
 
-# Pydantic 모델
-class PlayerStat(BaseModel):
-    team: str
-    player: str
-    goals: int
-    assists: int
-    attack_point: int
-
-class PlayerStatsResponse(BaseModel):
-    season: str
-    stats: List[PlayerStat]
-
-class PlayerInfo(BaseModel):
-    team: str
-    player: str
-    position: str
-    image: Optional[str]
-    goals: int
-    assists: int
-    attack_point: int
-    dribbles: int
-    dribble_success: int
-    pass_try: int
-    pass_success: int
-    tackle_try: int
-    tackle_success: int
-    average_rating: Optional[float]
-    shoot: int
-    effective_shoot: int
-    defending: int
-    block_try: int
-    block: int
-    yellow_cards: int
-    red_cards: int
-
-class TeamInfo(BaseModel):
-    team_name: str
-    season: str
-    matches_played: int
-    wins: int
-    draws: int
-    losses: int
-    goals_for: int
-    goals_against: int
-    goal_diff: int
-    own_goals: int
-    yellow_cards: int
-    red_cards: int
-
-class ShootDetail(BaseModel):
-    shoot_id: int
-    player_name: str
-    shoot_type: str
-    result: str
-    minute: int
 
 # 루트
 @app.get("/", description="API 기본 정보")
 def root():
     return {"message": "FIFA Data Collector API"}
 
+
 # 데이터 수집
 @app.put("/collect", description="NEXON API를 통해 최신 경기 데이터를 수집 후 DB에 저장")
 def collect_data():
     data_collector.collect_and_save_match_data()
     return {"status": "success"}
+
 
 # 리그 테이블 조회
 @app.get("/league_table/{season}", description="특정 시즌 리그 순위 조회")
@@ -124,6 +72,7 @@ def show_league_table(season: str= Path(..., description="조회할 시즌, 예:
     result = db_utils.show_league_table(cur, season)
     cur.close()
     return result
+
 
 # 개인 순위 조회
 @app.get("/rank/attack_point/{season}", description="공격 포인트 순위 조회")
@@ -134,6 +83,7 @@ def get_attack_point_rank(season: str= Path(..., description="조회할 시즌, 
     # return result
     return {"season": season, "stats": result}
 
+
 @app.get("/rank/goal/{season}", description="득점 순위 조회")
 def get_goal_rank(season: str= Path(..., description="조회할 시즌, 예: '2025_1'")):
     cur = conn.cursor()
@@ -142,6 +92,7 @@ def get_goal_rank(season: str= Path(..., description="조회할 시즌, 예: '20
     # return result
     return {"season": season, "stats": result}
 
+
 @app.get("/rank/assist/{season}", description="어시스트 순위 조회")
 def get_assist_rank(season: str= Path(..., description="조회할 시즌, 예: '2025_1'")):
     cur = conn.cursor()
@@ -149,6 +100,7 @@ def get_assist_rank(season: str= Path(..., description="조회할 시즌, 예: '
     cur.close()
     # return result
     return {"season": season, "stats": result}
+
 
 # 선수 정보 조회
 @app.get("/info/player/{season}/{player_name}", description="특정 선수 시즌별 누적 스탯 조회")
@@ -161,6 +113,7 @@ def get_player_info(
     cur.close()
     return result
 
+
 # 팀 정보 조회
 @app.get("/info/teams/{season}/{team_name}", description="특정 팀 시즌별 누적 스탯 조회")
 def get_team_info(
@@ -172,6 +125,7 @@ def get_team_info(
     cur.close()
     return result
 
+
 # 해당 시즌 팀 목록 조회
 @app.get("/info/team_list/{season}", description="특정 시즌 팀 리스트 조회")
 def get_team_list(
@@ -180,6 +134,7 @@ def get_team_list(
     result = db_utils.get_team_list(cur, season)
     cur.close()
     return result
+
 
 # 슛 상세 조회
 @app.get("/shoot_detail/{match_info_id}", description="특정 match_info_id의 슛 상세 조회")
