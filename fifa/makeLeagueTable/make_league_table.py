@@ -9,40 +9,37 @@ from openpyxl import load_workbook
 
 # ✅ 팀 리스트 정의
 def get_js_teams():
-    return ["Arsenal", "Chelsea", "SSC Napoli", "Inter Milan", "PSG",
-            "Barcelona", "Villarreal", "AS Roma", "Legend RMA", "Legend ARS"]
+    return ["Arsenal", "Newcastle", "Barcelona", "Inter Milan", "PSG"]
 
 
 def get_hs_teams():
-    return ["Manchester United", "Manchester City", "Real Madrid", "Liverpool", "Bayern Munich",
-            "Lille OSC", "AFC Bournemouth", "Legend MU", "Juventus", "Dortmund"]
+    return ["Manchester United", "Manchester City", "Real Madrid", "Liverpool", "Bayern Munich"]
 
 
-def make_first_half(junior_teams, senior_teams, num_rounds=10):
+def make_first_half(hs_teams, js_teams, num_rounds=5):
     """
     Junior 팀 vs Senior 팀만 매치 생성
-    각 라운드에서 Junior 팀 10명 전원이 Senior 팀과 각각 경기
-    총 10라운드 (각 팀 10경기)
+    각 라운드에서 Junior 5팀 Senior 팀과 각각 경기. 총 5라운드
     """
-    if len(junior_teams) != len(senior_teams):
+    if len(js_teams) != len(hs_teams):
         raise ValueError("Junior 와 Senior 팀 수는 같아야 합니다.")
 
-    n = len(junior_teams)
+    n = len(js_teams)
     schedule = []
 
     # 라운드마다 senior 팀 순서를 회전시켜서 매치업 다양화
     for r in range(num_rounds):
         round_matches = []
         for i in range(n):
-            home = junior_teams[i]
-            away = senior_teams[(i + r) % n]
+            home = js_teams[i]
+            away = hs_teams[(i + r) % n]
             round_matches.append([home, "", "", away])
         schedule.append(round_matches)
 
     return schedule
 
 
-def shuffle_each_round_order(schedule, start_round=1, end_round=10):
+def shuffle_each_round_order(schedule, start_round=1, end_round=5):
     """
     일정 중 특정 범위의 라운드들 안에서만 경기 순서를 섞는다.
     (예: 1~10R 사이의 각 라운드에서 순서만 랜덤하게 변경)
@@ -63,37 +60,40 @@ def shuffle_second_half_schedule(second_half):
     return second_half
 
 
-def check_duplicates(schedule):
+def check_duplicates(schedule, max_allowed=2):
     """
-    두 팀이 3번 이상 붙은 경우:
-    ➤ 몇 회 붙었는지
-    ➤ 어느 라운드에서 붙었는지
-    모두 출력
+    경기 일정 검증 로직
+
+    - 두 팀이 max_allowed(기본 2회)보다 많이 붙으면 경고
+    - 총 경기 수 / 고유 매치업 수 출력
     """
-    from collections import defaultdict
 
     match_counter = defaultdict(int)
     match_rounds = defaultdict(list)
 
-    for round_idx, round_matches in enumerate(schedule, 1):  # 1-based round index
+    for round_idx, round_matches in enumerate(schedule, 1):  # 1-based index
         for match in round_matches:
             key = tuple(sorted([match[0], match[3]]))  # 홈/원정 무시
             match_counter[key] += 1
             match_rounds[key].append(round_idx)
 
-    true_duplicates = {k: v for k, v in match_counter.items() if v > 2}
+    # 중복 매치업 필터링
+    true_duplicates = {k: v for k, v in match_counter.items() if v > max_allowed}
 
     if true_duplicates:
-        print("\n🚨 3번 이상 붙은 팀 조합 발견:")
+        print("\n🚨 중복 매치업 발견 (허용치 초과):")
         for (team1, team2), count in true_duplicates.items():
             rounds = match_rounds[(team1, team2)]
             rounds_str = ", ".join(f"{r}R" for r in rounds)
             print(f" - {team1} vs {team2}: {count}회 (라운드: {rounds_str})")
-        print(f"\n❌ 중복된 조합 수: {len(true_duplicates)}")
+        print(f"❌ 중복된 조합 수: {len(true_duplicates)}")
         return False
     else:
-        print("✅ 모든 팀 조합이 최대 2회까지만 등장 (정상)")
-        print(f"총 고유 매치 수: {len(match_counter)}")
+        expected_matches = len(schedule) * len(schedule[0])
+        actual_matches = sum(match_counter.values())
+        print("✅ 모든 팀 조합이 정상 범위 내 등장")
+        print(f"총 고유 매치업 수: {len(match_counter)}")
+        print(f"총 경기 수: {actual_matches} (예상: {expected_matches})")
         return True
 
 
@@ -181,19 +181,19 @@ def adjust_all_sheets_column_width(path):
 
 # ✅ 메인 실행 함수
 def main():
-    season_name = "season_"
+    season_name = "2025_2"
 
-    js_teams = get_js_teams()
     hs_teams = get_hs_teams()
+    js_teams = get_js_teams()
 
     print("[1] 전반기 일정 생성 중...")
-    first_half = make_first_half(js_teams, hs_teams, num_rounds=10)
-    first_half = shuffle_each_round_order(first_half, start_round=1, end_round=10)
+    first_half = make_first_half(js_teams, hs_teams, num_rounds=5)
+    first_half = shuffle_each_round_order(first_half, start_round=1, end_round=5)
 
     print("[2] 후반기 일정 생성 중...")
     # first_half 를 뒤집기만 함
     second_half = make_second_half(first_half)
-    second_half = shuffle_each_round_order(second_half, start_round=1, end_round=10)
+    second_half = shuffle_each_round_order(second_half, start_round=1, end_round=5)
 
     full_schedule = first_half + second_half
 
