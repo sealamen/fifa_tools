@@ -58,9 +58,18 @@ def collect_and_save_match_data():
                     return player_info["name"]
             return None
 
+        # MATCHES 테이블에 존재하는 match_id 는 빼버리자
+        exists_match_ids = db_utils.get_match_id(cur)
+
+        # 이미 DB에 있는 경기 ID를 set으로 변환
+        exists_set = set(exists_match_ids)
+
+        # user_match_ids에서 이미 있는 ID 제거
+        new_match_ids = [mid for mid in user_match_ids if mid not in exists_set]
+
         # 경기 데이터 저장
         print("=== 데이터 저장 시작 ===\n")
-        for match_id in user_match_ids:
+        for match_id in new_match_ids:
             print(f">>> Match_ID: {match_id} 처리 시작")
             match_results = fconline_api.get_match_detail(api_key, match_id)
             print(f">>> Match Date: {match_results['matchDate']}")

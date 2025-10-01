@@ -416,3 +416,11 @@ def get_team_list(cur, season):
         ORDER BY TEAM_NAME
     """, season=season)
     return [dict(zip([d[0] for d in cur.description], row)) for row in cur.fetchall()]
+
+
+def get_match_id(cur):
+    cur.execute("""
+        SELECT MATCH_ID 
+        FROM MATCHES
+    """)
+    return [row[0] for row in cur.fetchall()]
