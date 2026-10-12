@@ -150,10 +150,11 @@ elif menu == "대시보드":
         st.sidebar.download_button("로그 파일 다운로드", logs, file_name="collect.log", mime="text/plain")
 
     # 시즌 선택
-    season = st.selectbox("시즌 선택", ["2025_1", "2025_2"])
+    season = st.selectbox("시즌 선택", ["2025_1", "2025_2", "2025_3", "2025_4", "2025_5", "2025_6", "2025_7", "2025_8",
+                                    "2025_9", "2025_10", "2025_11", "2026_1"], index=11)
 
     # 탭 구성
-    tabs = st.tabs(["리그 테이블", "개인 순위", "선수 정보", "팀 정보", "슛 상세"])
+    tabs = st.tabs(["리그 테이블", "개인 순위", "선수 정보", "팀 정보", "슛 상세", "경기 일정"])
 
     # 1️⃣ 리그 테이블 탭
     with tabs[0]:
@@ -169,10 +170,10 @@ elif menu == "대시보드":
     # 2️⃣ 개인 순위 탭 (서브탭: 공격/득점/어시스트)
     with tabs[1]:
         st.header(f"{season} 시즌 개인 순위")
-        sub_tabs = st.tabs(["공격 포인트", "득점", "어시스트"])
+        sub_tabs = st.tabs(["득점", "어시스트", "공격 포인트"])
 
         # ⚡ 공격 포인트 순위
-        with sub_tabs[0]:
+        with sub_tabs[2]:
             resp = requests.get(f"{API_BASE}/rank/attack_point/{season}")
             if resp.status_code == 200:
                 df_attack = pd.DataFrame(resp.json()['stats'])
@@ -182,7 +183,7 @@ elif menu == "대시보드":
                 st.error("공격 포인트 순위 조회 실패")
 
         # ⚡ 득점 순위
-        with sub_tabs[1]:
+        with sub_tabs[0]:
             resp = requests.get(f"{API_BASE}/rank/goal/{season}")
             if resp.status_code == 200:
                 df_goal = pd.DataFrame(resp.json()['stats'])
@@ -193,7 +194,7 @@ elif menu == "대시보드":
                 st.error("득점 순위 조회 실패")
 
         # ⚡ 어시스트 순위
-        with sub_tabs[2]:
+        with sub_tabs[1]:
             resp = requests.get(f"{API_BASE}/rank/assist/{season}")
             if resp.status_code == 200:
                 df_assist = pd.DataFrame(resp.json()['stats'])
@@ -300,11 +301,11 @@ elif menu == "대시보드":
                 recent_5_results = None
                 if resp_rank.status_code == 200:
                     league_data = resp_rank.json()
-                    sorted_league = sorted(league_data, key=lambda x: x['POINTS'], reverse=True)
+                    sorted_league = sorted(league_data, key=lambda x: x['승점'], reverse=True)
                     for i, t in enumerate(sorted_league):
-                        if t['TEAM_NAME'] == team_name:
+                        if t['팀이름'] == team_name:
                             team_rank = i + 1
-                            recent_5_results = t.get('RECENT_5_RESULTS', None)
+                            recent_5_results = t.get('최근 5경기', None)
                             break
 
                 # 팀 헤더 + 로고
@@ -374,6 +375,23 @@ elif menu == "대시보드":
                 st.dataframe(df_shoot)
             else:
                 st.warning("슛 상세 정보 조회 실패")
+
+    # 6️⃣ 경기 일정 탭
+    with tabs[5]:
+        st.header(f"{season} 시즌 경기 일정")
+        resp = requests.get(f"{API_BASE}/schedule/{season}")
+        if resp.status_code == 200:
+            df_fixture = pd.DataFrame(resp.json()['fixtures'])
+            # 이번 라운드만 필터링
+            current_round = df_fixture['ROUND'].max()
+            st.subheader(f"📅 이번 라운드: {current_round}R")
+            st.dataframe(df_fixture[df_fixture['ROUND'] == current_round], use_container_width=True, hide_index=True)
+
+            # 전체 일정 조회
+            with st.expander("전체 일정 보기"):
+                st.dataframe(df_fixture, use_container_width=True, hide_index=True)
+        else:
+            st.error("경기 일정 조회 실패")
 
 
 # 모듈 구조

@@ -9,11 +9,11 @@ from openpyxl import load_workbook
 
 # ✅ 팀 리스트 정의
 def get_js_teams():
-    return ["Arsenal", "Newcastle", "Barcelona", "Inter Milan", "PSG"]
+    return ["Arsenal", "Juventus", "Barcelona", "Inter", "Bayern Munich"]
 
 
 def get_hs_teams():
-    return ["Manchester United", "Manchester City", "Real Madrid", "Liverpool", "Bayern Munich"]
+    return ["Manchester United", "Chelsea", "Atletico Madrid", "Liverpool", "PSG"]
 
 
 def make_first_half(hs_teams, js_teams, num_rounds=5):
@@ -181,7 +181,7 @@ def adjust_all_sheets_column_width(path):
 
 # ✅ 메인 실행 함수
 def main():
-    season_name = "2025_2"
+    season_name = "2026_1"
 
     hs_teams = get_hs_teams()
     js_teams = get_js_teams()

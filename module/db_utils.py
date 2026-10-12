@@ -217,16 +217,16 @@ def show_league_table(cur, season):
             GROUP BY t.TEAM_NAME
         )
         SELECT 
-            team_name,
-            matches_played,
-            wins,
-            draws,
-            losses,
-            points,
-            goals_for,
-            goals_against,
-            (goals_for - goals_against) AS goal_diff,
-            SUBSTR(recent_results_all, 1, 5) AS recent_5_results
+            team_name AS "팀이름", 
+            matches_played AS "경기 수",
+            wins AS "승",
+            draws AS "무",
+            losses AS "패",
+            points AS "승점",
+            (goals_for - goals_against) AS "득실차",
+            goals_for AS "득점",
+            goals_against AS "실점",
+            SUBSTR(recent_results_all, 1, 5) AS "최근 5경기"
         FROM team_stats
         ORDER BY points DESC, (goals_for - goals_against) DESC, goals_for DESC
     """, season=season)
