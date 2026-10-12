@@ -20,8 +20,7 @@ st.title("FIFA 경기 데이터 대시보드")
 
 # 사이드바 메뉴
 st.sidebar.title("📌 메뉴")
-menu = st.sidebar.radio("탭 선택", ["개발 환경 구축 매뉴얼", "Architecture Diagram",
-                                   "대시보드", "모듈 구조"])
+menu = st.sidebar.radio("탭 선택", ["대시보드", "개발 환경 구축 매뉴얼", "Architecture Diagram", "모듈 구조"])
 
 # 매뉴얼
 if menu == "개발 환경 구축 매뉴얼":
